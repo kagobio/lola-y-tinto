@@ -54,4 +54,12 @@ export function sfx(k) {
   else if (k === 'sizzle') { noise(t, 1.2, 0.12, 4000); }
   else if (k === 'purr') { tone(70, t, 0.5, 'sawtooth', 0.06); tone(78, t + 0.1, 0.5, 'sawtooth', 0.05); }
   else if (k === 'quack') { tone(240, t, 0.1, 'sawtooth', 0.1, 150); tone(210, t + 0.14, 0.14, 'sawtooth', 0.09, 120); }
+  else if (k === 'paso') { tone(140, t, 0.045, 'triangle', 0.03); tone(190, t, 0.03, 'triangle', 0.016); }
+  else if (k === 'door') { tone(170, t, 0.14, 'square', 0.07, 330); noise(t + 0.03, 0.1, 0.06, 2500); }
+  else if (k === 'splash') { noise(t, 0.32, 0.2, 900); tone(300, t, 0.22, 'sine', 0.12, 85); }
+  else if (k === 'meow') { tone(640, t, 0.13, 'sawtooth', 0.045, 890); tone(700, t + 0.15, 0.2, 'sawtooth', 0.04, 430); }
+  else if (k === 'blip') { tone(660, t, 0.05, 'square', 0.035); }
+  else if (k === 'pop') { tone(440, t, 0.06, 'square', 0.06, 880); }
 }
+
+export function audioDebug() { return { state: (typeof ac !== 'undefined' && ac) ? ac.state : 'none', t: (typeof ac !== 'undefined' && ac) ? +ac.currentTime.toFixed(2) : 0, muted: (typeof muted !== 'undefined' ? muted : null), mode: (typeof mode !== 'undefined' ? mode : null), gain: (typeof master !== 'undefined' && master) ? master.gain.value : null }; }
