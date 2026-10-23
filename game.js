@@ -2,7 +2,7 @@
 import { THREE } from './models.js';
 import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, catAsset, plotAsset } from './art3.js';
 import { startMusic, stopMusic, sfx, setMuted } from './audio.js';
-import { MATBG, BOXBG } from './28-assets.js';
+import { MATBG, BOXBG } from './assets.js';
 
 const W = 31, D = 23, GROW = 14;
 const RIO = { x0: 34, W: 36, D: 24 };
@@ -153,6 +153,7 @@ export function mountGame(root) {
   const rstat = (x0, z0, x1, z1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) statik[RX + x][z] = 1; };
   rterr(0, 7, 35, 9);       // plaza del Matadero
   rterr(16, 9, 20, 11);     // paseo central plaza -> paseo
+  rterr(21, 10, 29, 11);    // gen8: carril este plaza -> paseo (arregla acceso al Box)
   rterr(0, 12, 35, 14);     // paseo principal + franja de bancos
   rterr(17, 12, 18, 22);    // puente sobre el Manzanares
   rterr(0, 22, 35, 23);     // orilla sur
