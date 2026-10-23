@@ -714,7 +714,7 @@ export function mountGame(root) {
   function useRef(id, ref) {
     const nm = S.names[id];
     if (ref.kind === 'talk') return runTalk();
-    if (ref.kind === 'npc') { const nn = npcs[ref.id]; if (nn) bubble(ref.id, nn.d.lines[Math.floor(Math.random() * nn.d.lines.length)]); return; }
+    if (ref.kind === 'npc') { const nn = npcs[ref.id]; if (nn) bubble(ref.id, (nn.d.name ? nn.d.name + ': ' : '') + nn.d.lines[Math.floor(Math.random() * nn.d.lines.length)]); return; }
     if (ref.kind === 'plot') return doPlot(id, ref.i);
     if (ref.kind === 'cat') { return goDo(id, ref, () => petCat(id, ref.id)); }
     if (ref.kind === 'gate') return goDo(id, ref, () => goWorld(id, ref.to));
@@ -1069,6 +1069,10 @@ export function mountGame(root) {
     { id: 'vecina', c: '#c2547a', hair: '#4a2f22', wps: [[RX + 8, 12], [RX + 30, 12]], v: 1.5, lines: ['Qué día tan bueno para el río.', 'Vuestros gatitos son famosos en el portal.', 'El Matadero hoy tiene expo nueva.'] },
     { id: 'corredor', c: '#d8483a', hair: '#1c1626', wps: [[RX + 4, 19], [RX + 52, 19]], v: 3.2, lines: ['Voy a por mi mejor marca hasta el puente.', '¡A ritmo, a ritmo!'] },
     { id: 'abuelo', c: '#7a8a99', hair: '#d8d8d8', wps: [[RX + 6, 34], [RX + 25, 34]], v: 0.9, lines: ['El Manzanares baja alegre hoy.', 'A vuestra edad yo también pescaba aquí.'] },
+    { id: 'miro', name: 'Miro', c: '#3a6ea5', hair: '#2b2018', wps: [[RX + 10, 12], [RX + 28, 12]], v: 1.3, lines: ['Nina y yo no perdemos un atardecer en el río.', 'Nina, mira: los patos de siempre.', 'Este banco es el nuestro desde hace años.'] },
+    { id: 'nina', name: 'Nina', c: '#d88ab0', hair: '#6a3a1a', wps: [[RX + 10, 12.9], [RX + 28, 12.9]], v: 1.3, lines: ['Miro siempre encuentra el mejor banco.', 'Miro, un helado del kiosco y nos volvemos.', 'Qué suerte vivir tan cerca del río.'] },
+    { id: 'maria', name: 'María', c: '#5a9a4a', hair: '#1c1626', wps: [[RX + 8, 33.2], [RX + 24, 33.2]], v: 0.95, lines: ['Dani, luego pasamos por el mercadillo.', 'Con Dani hasta un paseo largo se hace corto.', 'Los gatos de los vecinos son unos artistas.'] },
+    { id: 'dani', name: 'Dani', c: '#c98a2a', hair: '#3a2a1a', wps: [[RX + 8, 34.1], [RX + 24, 34.1]], v: 0.95, lines: ['María y yo ya nos sabemos cada puente.', 'María, un día nos apuntamos al WOD del box.', 'Este paseo es el mejor gimnasio gratis.'] },
   ];
   const npcs = {};
   for (const d of npcDefs) {
@@ -1417,4 +1421,4 @@ export function mountGame(root) {
   api.audioDebug = audioDebug;
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
-                                                                                                                                                      }
+      }
