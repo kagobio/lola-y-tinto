@@ -703,15 +703,9 @@ export function mountGame(root) {
     if (ref.kind === 'matainfo') return goDo(id, ref, () => openMatadero());
     if (ref.kind === 'expo') return goDo(id, ref, () => openExpo(ref.n));
     if (ref.kind === 'cineteca') return goDo(id, ref, () => { busy(id, 3, '🎬', () => { S.energy[id] = Math.min(100, S.energy[id] + 10); say('🎬 Cortometraje en la Cineteca. +10 energía'); sfx('win'); updateHUD(); save(); }); });
-    if (ref.kind === 'wod') return goDo(id, ref, () => {
-      if (!needEnergy(id, 20)) return;
-      busy(id, 3.6, 'WOD', () => { S.energy[id] -= 20; stat('boxwod_' + id); earn(8); say('🏋️ WOD en ' + ref.st + ': +8 🪙'); if (S.stats.boxwod_el && S.stats.boxwod_ella) mission('box'); else say('WOD hecho en el box. Falta ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3200); updateHUD(); save(); });
-    });
+    if (ref.kind === 'wod') return goDo(id, ref, () => startWod(id, 'WOD en ' + ref.st, 'box'));
     if (ref.kind === 'duck') { say('¡Cuac!'); if (ref.g) spawnFloat('✨', ref.g.position, 0.8); sfx('quack'); return; }
-    if (ref.kind === 'gymout') return goDo(id, ref, () => {
-      if (!needEnergy(id, 20)) return;
-      busy(id, 3.6, 'WOD', () => { S.energy[id] -= 20; stat('wod_' + id); earn(8); say('Calistenia en Madrid Río: +8 Monedas'); if (S.stats.wod_el && S.stats.wod_ella) mission('crossfit'); else say('WOD hecho. Falta que lo haga ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3200); updateHUD(); save(); });
-    });
+    if (ref.kind === 'gymout') return goDo(id, ref, () => startWod(id, 'Calistenia en Madrid Río', 'out'));
     if (ref.kind === 'pesca') return goDo(id, ref, () => {
       busy(id, 2.6, '🎣', () => {
         if (Math.random() < 0.7) { addInv('pescado', 1); spawnFloat('✨', chars[id].g.position, 1.2); sfx('coin'); say('🎣 ¡Picó! Un pescado fresquito del Manzanares. Ideal para el pescadito de Lola y Tinto.', 3400); }
@@ -751,7 +745,7 @@ export function mountGame(root) {
       if (k === 'tv') { busy(id, 3, '📺', () => { S.energy[id] = Math.min(100, S.energy[id] + 10); say(nm + ' ve un capítulo con un gato encima.'); updateHUD(); }); return; }
       if (k === 'pc') { if (!needEnergy(id, 15)) return; busy(id, 3.2, '💻', () => { const g = id === 'el' ? 30 : 18; S.energy[id] -= 15; stat('work'); earn(g); say('💻 Trabajo hecho: +' + g + ' 🪙' + (id === 'el' ? ' (de informático, se nota)' : '')); mission('trabajo'); updateHUD(); }); return; }
       if (k === 'tax') { if (!needEnergy(id, 15)) return; busy(id, 3.2, '🧾', () => { const g = id === 'ella' ? 30 : 18; S.energy[id] -= 15; stat('work'); earn(g); say('🧾 Expedientes de Hacienda: +' + g + ' 🪙' + (id === 'ella' ? ' (con oficio)' : '')); mission('trabajo'); updateHUD(); }); return; }
-      if (k === 'crossfit') { if (!needEnergy(id, 20)) return; busy(id, 3.6, '🏋️', () => { S.energy[id] -= 20; stat('wod_' + id); earn(8); say('🏋️ WOD completado: +8 🪙'); if (S.stats.wod_el && S.stats.wod_ella) mission('crossfit'); else say('🏋️ WOD hecho. Falta que lo haga ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3200); updateHUD(); }); return; }
+      if (k === 'crossfit') { startWod(id, 'WOD en casa', 'home'); return; }
       if (k === 'techno' || k === 'flamenco') { const on = musicMode !== k; musicMode = on ? k : null; if (on) { startMusic(k); stat('music'); mission('musica'); say(k === 'techno' ? '🎧 Techno a todo trapo.' : '💃 Flamenco: ¡olé!'); } else { stopMusic(); say('Música apagada.'); } return; }
       if (k === 'bowl') {
         if (inv('pescadito') > 0) { busy(id, 1.4, '🍣', () => { addInv('pescadito', -1); S.bowl = Math.min(4, S.bowl + 3); refreshBowl(); mission('comedero'); say('🍣 Comedero lleno para Lola y Tinto.'); save(); }); }
@@ -879,6 +873,165 @@ export function mountGame(root) {
     }
   }
 
+  /* ---------------- gen10: WOD jugable (circuito con minijuegos) ---------------- */
+  const wodv = h('div', 'g-wod'); ui.append(wodv);
+  let wodOn = null;
+  function startWod(id, title, flavor) {
+    if (wodOn) return;
+    if (!needEnergy(id, 20)) return;
+    const ch = chars[id];
+    ch.path = []; ch.after = null;
+    ch.busy = { t: 0, dur: 3600, label: 'WOD', done: () => {} };
+    wodOn = { id, title, flavor, stage: 0, hits: 0, miss: 0, t: 0, fb: 0, fbOk: false, ctx: null, els: null,
+      dom: { pos: 0, dir: 1, speed: 1, reps: 0, need: 5 },
+      kb: { pow: 0, time: 9 },
+      jump: { steps: 0, need: 8, next: 0 } };
+    const w = wodOn;
+    const cvs = h('canvas', 'g-wod-c'); cvs.width = 140; cvs.height = 140;
+    w.ctx = cvs.getContext('2d');
+    const pips = h('div', 'g-wod-pips', '');
+    const hint = h('div', 'g-wod-hint', '');
+    const zone = h('div', 'g-wod-zone');
+    const bQuit = btn('Abandonar', () => endWod(false), 'g-ico g-quit');
+    w.els = { pips, hint, zone };
+    wodv.append(h('div', 'g-wod-p', [
+      h('div', 'g-wod-l', [h('div', 'g-wod-t', title), cvs]),
+      h('div', 'g-wod-r', [pips, hint, zone, bQuit])
+    ]));
+    wodv.classList.add('on');
+    wodStageUI();
+    say('Completa los 3 ejercicios para ganar la recompensa.', 2800);
+  }
+  function wodStageUI() {
+    const w = wodOn, e = w.els; e.zone.innerHTML = '';
+    if (w.stage === 0) {
+      e.hint.textContent = 'Dominadas: pulsa SUBE justo cuando el marcador pase por la zona verde. Cada acierto es una rep; la zona se estrecha.';
+      const bar = h('div', 'g-wod-bar'); const z = h('div', 'g-wod-z'); const mk = h('div', 'g-wod-mk');
+      bar.append(z, mk); w.domZ = z; w.domMk = mk;
+      e.zone.append(bar, btn('SUBE!', () => wodHitTiming(), 'g-primary g-big'));
+    } else if (w.stage === 1) {
+      e.hint.textContent = 'Kettlebell: machaca LEVANTA para llenar la barra antes de que se agote el tiempo. Si se vacía el tiempo, repites.';
+      const bar = h('div', 'g-wod-bar g-wod-pb'); const fill = h('div', 'g-wod-fill'); bar.append(fill); w.kbFill = fill;
+      w.kbT = h('div', 'g-wod-time', '');
+      e.zone.append(bar, w.kbT, btn('LEVANTA!', () => wodMash(), 'g-primary g-big'));
+    } else {
+      e.hint.textContent = 'Saltos al cajón: alterna los pies < y > siguiendo el pie marcado. Si fallas, pierdes un salto.';
+      const bL = btn('<', () => wodFoot(0), 'g-foot'); const bR = btn('>', () => wodFoot(1), 'g-foot');
+      w.footL = bL; w.footR = bR;
+      e.zone.append(h('div', 'g-wod-feet', [bL, bR]));
+    }
+  }
+  function wodPips() {
+    const w = wodOn; if (!w || !w.els) return;
+    const names = ['Ejercicio 1/3 - Dominadas', 'Ejercicio 2/3 - Kettlebell', 'Ejercicio 3/3 - Saltos al cajón'];
+    const prog = w.stage === 0 ? w.dom.reps + '/' + w.dom.need : w.stage === 1 ? Math.round(w.kb.pow * 100) + '%' : w.jump.steps + '/' + w.jump.need;
+    w.els.pips.textContent = names[w.stage] + '   ' + prog;
+  }
+  function wodZoneW() { const w = wodOn; return Math.max(0.14, 0.3 - w.dom.reps * 0.032); }
+  function wodHitTiming() {
+    const w = wodOn; if (!w || w.stage !== 0) return;
+    const d = w.dom, ok = Math.abs(d.pos - 0.5) <= wodZoneW() / 2;
+    w.fb = 0.45; w.fbOk = ok;
+    if (ok) { w.hits++; d.reps++; d.speed = Math.min(2.3, d.speed + 0.22); sfx('coin'); if (d.reps >= d.need) return wodNextStage(); }
+    else { w.miss++; sfx('tick'); }
+  }
+  function wodMash() {
+    const w = wodOn; if (!w || w.stage !== 1) return;
+    w.kb.pow = Math.min(1, w.kb.pow + 0.085); w.fb = 0.25; w.fbOk = true; w.hits++; sfx('tick');
+    if (w.kb.pow >= 1) wodNextStage();
+  }
+  function wodFoot(side) {
+    const w = wodOn; if (!w || w.stage !== 2) return;
+    const j = w.jump;
+    if (side === j.next) { j.steps++; j.next = 1 - j.next; w.fb = 0.35; w.fbOk = true; w.hits++; sfx('tick'); if (j.steps >= j.need) return wodNextStage(); }
+    else { j.next = 0; j.steps = Math.max(0, j.steps - 1); w.fb = 0.45; w.fbOk = false; w.miss++; sfx('tick'); }
+  }
+  function wodNextStage() {
+    const w = wodOn; if (!w) return;
+    if (w.stage >= 2) return endWod(true);
+    w.stage++; sfx('win'); wodStageUI();
+  }
+  function endWod(win) {
+    const w = wodOn; if (!w) return;
+    const id = w.id, ch = chars[id];
+    wodv.classList.remove('on'); wodv.innerHTML = ''; wodOn = null;
+    if (ch.busy && ch.busy.dur === 3600) ch.busy = null;
+    if (!win) { say('WOD abandonado. El box seguirá ahí mañana.'); updateHUD(); save(); return; }
+    S.energy[id] = Math.max(0, S.energy[id] - 20);
+    const bonus = w.miss === 0 ? 4 : w.miss <= 2 ? 2 : 0;
+    const gain = 8 + bonus;
+    const perfect = w.miss === 0 ? ' WOD perfecto, sin fallos.' : '';
+    if (w.flavor === 'box') {
+      stat('boxwod_' + id); earn(gain);
+      if (S.stats.boxwod_el && S.stats.boxwod_ella) mission('box');
+      else say('WOD en el box: +' + gain + ' Monedas.' + perfect + ' Falta ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3800);
+    } else {
+      stat('wod_' + id); earn(gain);
+      if (S.stats.wod_el && S.stats.wod_ella) mission('crossfit');
+      else say((w.flavor === 'out' ? 'Calistenia en Madrid Río' : 'WOD en casa') + ': +' + gain + ' Monedas.' + perfect + ' Falta que lo haga ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3800);
+    }
+    sfx('win'); updateHUD(); save();
+  }
+  function wodTick(dt) {
+    const w = wodOn; if (!w) return;
+    w.t += dt; w.fb = Math.max(0, w.fb - dt);
+    if (w.stage === 0) {
+      const d = w.dom;
+      d.pos += d.dir * dt * 0.85 * d.speed;
+      if (d.pos >= 1) { d.pos = 1; d.dir = -1; } else if (d.pos <= 0) { d.pos = 0; d.dir = 1; }
+      if (w.domZ) { const zw = wodZoneW(); w.domZ.style.left = (0.5 - zw / 2) * 100 + '%'; w.domZ.style.width = zw * 100 + '%'; w.domMk.style.left = d.pos * 100 + '%'; }
+    } else if (w.stage === 1) {
+      const k = w.kb; k.time -= dt; k.pow = Math.max(0, k.pow - dt * 0.17);
+      if (w.kbFill) w.kbFill.style.width = k.pow * 100 + '%';
+      if (w.kbT) w.kbT.textContent = 'Tiempo: ' + Math.max(0, k.time).toFixed(1) + ' s';
+      if (k.time <= 0) { k.time = 9; k.pow = 0; w.miss++; say('Se te cayó la kettlebell. Otra vez.', 2000); }
+    } else if (w.stage === 2 && w.footL) {
+      w.footL.classList.toggle('on', w.jump.next === 0); w.footR.classList.toggle('on', w.jump.next === 1);
+    }
+    wodPips();
+    drawWod();
+  }
+  function drawWod() {
+    const w = wodOn, x = w && w.ctx; if (!x) return;
+    x.clearRect(0, 0, 140, 140); x.imageSmoothingEnabled = false;
+    x.fillStyle = '#efe3c8'; x.fillRect(0, 0, 140, 140);
+    if (w.fb > 0) { x.fillStyle = w.fbOk ? 'rgba(95,211,141,' + (w.fb * 0.5) + ')' : 'rgba(216,53,42,' + (w.fb * 0.45) + ')'; x.fillRect(0, 0, 140, 140); }
+    x.fillStyle = '#6a5a78'; x.fillRect(0, 118, 140, 22); x.fillStyle = '#574a66'; x.fillRect(0, 118, 140, 4);
+    const skin = '#e8b88a', shirt = w.id === 'el' ? '#3f6fb8' : '#c23a5a', pants = '#2b2233', dark = '#1c1626';
+    const cx = 70;
+    if (w.stage === 0) {
+      x.fillStyle = dark; x.fillRect(20, 26, 100, 6); x.fillRect(22, 26, 5, 92); x.fillRect(113, 26, 5, 92);
+      const up = w.fbOk && w.fb > 0 ? 14 : 0;
+      const hy = 44 - up;
+      x.fillStyle = skin; x.fillRect(cx - 12, hy, 6, 20); x.fillRect(cx + 6, hy, 6, 20);
+      x.fillRect(cx - 9, hy + 16, 18, 12);
+      x.fillStyle = dark; x.fillRect(cx - 9, hy + 12, 18, 6);
+      x.fillStyle = shirt; x.fillRect(cx - 11, hy + 28, 22, 20);
+      x.fillStyle = pants; x.fillRect(cx - 10, hy + 48, 9, 22); x.fillRect(cx + 1, hy + 48, 9, 22);
+    } else if (w.stage === 1) {
+      const kbY = 108 - w.kb.pow * 62;
+      const squat = w.kb.pow < 0.5 ? 6 : 0;
+      x.fillStyle = skin; x.fillRect(cx - 9, 58 + squat, 18, 13);
+      x.fillStyle = dark; x.fillRect(cx - 9, 54 + squat, 18, 6);
+      x.fillStyle = shirt; x.fillRect(cx - 11, 71 + squat, 22, 22);
+      x.fillStyle = pants; x.fillRect(cx - 11, 93 + squat, 10, 25 - squat); x.fillRect(cx + 1, 93 + squat, 10, 25 - squat);
+      x.fillStyle = skin; x.fillRect(cx - 16, 74 + squat, 5, 18); x.fillRect(cx + 11, 74 + squat, 5, 18);
+      x.fillStyle = dark; x.fillRect(cx - 3, kbY - 12, 6, 12);
+      x.beginPath(); x.fillStyle = '#3a3344'; x.arc(cx, kbY + 4, 9, 0, 7); x.fill();
+    } else {
+      x.fillStyle = '#8a6a40'; x.fillRect(88, 84, 34, 34); x.fillStyle = '#6e5330'; x.fillRect(88, 84, 34, 5);
+      const air = w.fbOk && w.fb > 0 ? Math.sin(Math.min(1, w.fb / 0.35) * Math.PI) * 26 : 0;
+      const onBox = w.jump.steps > 0 && w.jump.steps % 2 === 0;
+      const by = (onBox ? 66 : 96) - air;
+      x.fillStyle = skin; x.fillRect(cx - 18, by - 26, 16, 11);
+      x.fillStyle = dark; x.fillRect(cx - 18, by - 30, 16, 5);
+      x.fillStyle = shirt; x.fillRect(cx - 20, by - 15, 20, 18);
+      x.fillStyle = pants; x.fillRect(cx - 19, by + 3, 8, 14); x.fillRect(cx - 9, by + 3, 8, 14);
+      x.fillStyle = skin; x.fillRect(cx - 25, by - 12, 5, 14); x.fillRect(cx, by - 12, 5, 14);
+    }
+    if (w.fbOk && w.fb > 0) { x.fillStyle = '#f2c631'; x.fillRect(30, 40, 4, 4); x.fillRect(108, 52, 4, 4); x.fillRect(40, 96, 3, 3); }
+  }
+
   /* ---------------- input ---------------- */
   const ray = new THREE.Raycaster(); const mouse = new THREE.Vector2(); const gplane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   let camT = new THREE.Vector3(chars.el.g.position.x, 0, chars.el.g.position.z), pan = new THREE.Vector3();
@@ -905,7 +1058,7 @@ export function mountGame(root) {
   function movePlace(pt) { if (!place || !pt) return; const [fw, fd] = fp(place.type, place.r); place.x = Math.max(0, Math.min(W - fw, Math.floor(pt.x - (fw - 1) / 2 - 0.0))); place.z = Math.max(0, Math.min(D - fd, Math.floor(pt.z - (fd - 1) / 2))); if (CATALOG[place.type].wall) { place.z = 0; place.x = Math.max(8, Math.min(26, Math.floor(pt.x))); } refreshGhost(); }
   function onTap(e) {
     ensureAudio();
-    if (!S.started || catvOn) return;
+    if (!S.started || catvOn || wodOn) return;
     const { ref, pt } = pick(e);
     if (place) { movePlace(pt); return; }
     if (sheetWrap.classList.contains('on')) return;
@@ -1058,7 +1211,7 @@ export function mountGame(root) {
     for (const dk of ducks) { const nx = dk.g.position.x + dk.v * dt; dk.g.position.x = nx > RIO.x0 + 35 ? RIO.x0 + 1 : nx; dk.g.position.y = 0.1 + dk.z * 0.01 + Math.sin(clock * 2 + dk.z) * 0.03; }
     // gen9: botón de acción contextual
     { const chA = chars[active]; let best = null, bd = 2.1;
-      if (S.started && !catvOn && !sheetWrap.classList.contains('on') && !chA.busy) {
+      if (S.started && !catvOn && !wodOn && !sheetWrap.classList.contains('on') && !chA.busy) {
         const p = chA.g.position;
         for (const a of ACTS) { if (a.gone || a.world !== chA.where) continue; const d = Math.hypot(a.x + 0.5 - p.x, a.z + 0.5 - p.z); if (d < bd) { bd = d; best = a; } }
         if (chA.where === 'casa') for (const cid of ['lola', 'tinto']) { const cp = cats[cid].g.position; const d = Math.hypot(cp.x - p.x, cp.z - p.z); if (d < bd) { bd = d; best = { ref: { kind: 'cat', id: cid }, label: '❤️ ' + (cid === 'lola' ? 'Lola' : 'Tinto') }; } }
@@ -1082,6 +1235,7 @@ export function mountGame(root) {
       catvPounce = Math.max(0, catvPounce - dt);
       if (catvCtx) drawCatView(catvCtx, catvOn, catvT);
     }
+    if (wodOn) wodTick(dt);
     updateCam(dt);
     renderer.setClearColor((chars[active].where === 'mat' || chars[active].where === 'box') ? 0x14141a : 0x3f7a35);
     renderer.render(scene, cam);
@@ -1094,6 +1248,7 @@ export function mountGame(root) {
   updateHUD(); raf = requestAnimationFrame(loop);
   const api = { S, chars, cats, setActive, openShop, openMissions, startPlace, cancelPlace, say, mission, drawPlot, scene, cam, openEnding, zoom: n => { zi = n; }, camT, skipIntro() { S.started = true; intro.style.display = 'none'; updateHUD(); }, openCook, mount: root, dbgPick: (x,y)=>{const r=pick({clientX:x,clientY:y});return {ref:r.ref&&(r.ref.kind+':'+(r.ref.f?r.ref.f.type:r.ref.id||r.ref.i)),pt:r.pt&&[r.pt.x,r.pt.z]};}, addFurn(type,x,z,r){const f={uid:S.nextUid++,type,x,z,r};S.furn.push(f);placeMesh(f);rebuildBlocked();} };
   api.goWorld = goWorld; api.RIO = RIO; api.ducks = ducks;
+  api.gen = 10; api.startWod = startWod; api.wodState = () => wodOn; api.wodHit = wodHitTiming; api.wodMash = wodMash; api.wodFoot = wodFoot; api.endWod = endWod;
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
-}
+                                                                                                                                                      }
