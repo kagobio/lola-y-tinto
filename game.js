@@ -89,6 +89,7 @@ function defaultState() {
     plots: PLOTS.map(() => ({ type: null, stage: 0, water: 0, t: 0 })),
     bowl: 0, cats: { lola: { hunger: 80, love: 60 }, tinto: { hunger: 80, love: 60 } },
     stats: {}, done: {}, nextUid: 100, ended: false, started: false, pos: null, seenRioNote: false,
+    coinSpots: { day: 1, taken: [] }, musicoDay: 0,
   };
 }
 function load() {
@@ -219,8 +220,16 @@ export function mountGame(root) {
     m.rotation.x = -Math.PI / 2;
     m.position.set(x0 + w / 2, 0.05 + (z0 + d) * 0.01, z0 + d / 2);
     m.userData.ref = Object.assign({ kind, cells }, extra || {});
-    scene.add(m); return m;
+    scene.add(m);
+    const lab = extra && extra.st ? '🏋️ ' + extra.st : (ACTLBL[kind] || '✋ Usar');
+    ACTS.push({ world: worldOf(x0), ref: m.userData.ref, x: (x0 + x1) / 2, z: (z0 + z1) / 2, label: lab });
+    return m;
   }
+  // gen9: registro de acciones para el botón "Usar"
+  const worldOf = x => x >= BXX ? 'box' : x >= MX ? 'mat' : x >= RX ? 'rio' : 'casa';
+  const ACTLBL = { bench: '🪑 Descansar', fuente: '⛲ Agua', kiosk: '🍦 Kiosco', gymout: '🤸 Calistenia', expo: '🖼️ Expo', cineteca: '🎬 Cineteca', matainfo: 'ℹ️ Matadero', wod: '🏋️ WOD', pesca: '🎣 Pescar', matadero: '🚪 Al Matadero', boxdoor: '🚪 Al box' };
+  const ACTS = [];
+  const addAct = (world, ref, x, z, label) => { const a = { world, ref, x, z, label }; ACTS.push(a); return a; };
   const RL = (cells) => cells.map(([x, z]) => [RX + x, z]);
   zoneRef('matadero', RL([[13, 6], [14, 6], [15, 6], [16, 6], [17, 6], [18, 6], [19, 6], [20, 6], [21, 6], [22, 6]]));
   zoneRef('kiosk', RL([[30, 10], [31, 10], [30, 11], [31, 11]]));
@@ -254,6 +263,49 @@ export function mountGame(root) {
   zoneRef('wod', BL([[7, 9], [8, 9], [9, 9], [7, 10], [8, 10], [9, 10], [7, 11], [8, 11], [9, 11]]), { st: 'las cajas' });
   const exitBox = put(ART.cartel(), BXX + 9.5, 12.6); exitBox.userData.ref = { kind: 'gate', to: 'rio', cells: BL([[9, 12]]) }; statik[BXX + 9][12] = 1;
   zoneRef('boxdoor', RL([[31, 12], [32, 12], [33, 12], [34, 12], [35, 12], [33, 13], [34, 13]]));
+  // gen9: puertas y objetos de casa en el registro de acciones
+  addAct('rio', signRio.userData.ref, RX + 1, 12, '🚪 A casa');
+  addAct('casa', signCasa.userData.ref, 13, 22, '🚪 A Madrid Río');
+  addAct('rio', signMat.userData.ref, RX + 17, 8, '🚪 Al Matadero');
+  addAct('rio', signBox.userData.ref, RX + 33, 13, '🚪 Al box');
+  addAct('mat', exitMat.userData.ref, MX + 12, 16, '🚪 Salir');
+  addAct('mat', infoMat.userData.ref, MX + 15, 14, 'ℹ️ Matadero');
+  addAct('box', exitBox.userData.ref, BXX + 9, 12, '🚪 Salir');
+  const FURNLBL = { cook: '🍳 Cocinar', fridge: '🧊 Nevera', sink: '🚰 Agua', bed: '😴 Dormir', table: '🍽️ Comer', tv: '📺 Ver tele', pc: '💻 Curro PC', tax: '🧾 Curro', crossfit: '🏋️ WOD', techno: '🎧 Techno', flamenco: '💃 Flamenco', bowl: '🐟 Comedero' };
+  for (const f of S.furn) { const c = CATALOG[f.type]; if (!c.use) continue; const [fw, fd] = fp(f.type, f.r); addAct('casa', { kind: 'furn', f }, f.x + (fw - 1) / 2, f.z + (fd - 1) / 2, FURNLBL[c.use] || '✋ Usar'); }
+  for (let i = 0; i < PLOTS.length; i++) addAct('casa', { kind: 'plot', i }, PLOTS[i][0] + 0.5, PLOTS[i][1] + 0.5, '🌱 Huerto');
+
+  /* ---------------- gen9: actividades por el mapa ---------------- */
+  const texAsset = (draw, size, w2, h2) => { const t = tex(draw, size, 1, 1); return { tex: t, w: w2 || 0.6, h: h2 || 0.6, alpha: null, pw: size, ph: size }; };
+  // pesca en el Manzanares
+  const bobA = texAsset((x) => { x.strokeStyle = 'rgba(255,255,255,.75)'; x.lineWidth = 1; x.beginPath(); x.arc(12, 15, 8, 0, 7); x.stroke(); x.fillStyle = '#e33'; x.beginPath(); x.arc(12, 10, 5, Math.PI, 0); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.arc(12, 10, 5, 0, Math.PI); x.fill(); x.fillStyle = '#333'; x.fillRect(11, 2, 2, 4); }, 24, 0.5, 0.5);
+  for (const pc of [[[5, 22], [6, 22]], [[26, 22], [27, 22]]]) { zoneRef('pesca', RL(pc)); put(bobA, RX + pc[0][0] + 0.6, 21.4, 0.18); }
+  // monedas brillantes (vuelven cada día)
+  const coinDraw = shine => (x) => { x.fillStyle = '#a97b0a'; x.beginPath(); x.arc(12, 12, 10, 0, 7); x.fill(); x.fillStyle = '#f2c631'; x.beginPath(); x.arc(12, 12, 8, 0, 7); x.fill(); x.fillStyle = '#a97b0a'; x.font = 'bold 10px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('L', 12, 13); if (shine) { x.fillStyle = 'rgba(255,255,255,.92)'; x.fillRect(5, 5, 3, 3); x.fillRect(9, 3, 2, 2); } };
+  const coinA1 = texAsset(coinDraw(false), 24, 0.42, 0.42);
+  const COINS = [[RX + 8, 8], [RX + 25, 9], [RX + 15, 13], [RX + 20, 22], [RX + 30, 23], [16, 18], [25, 17]];
+  const coinG = [], coinActs = [];
+  COINS.forEach(([x, z], i) => {
+    const g = mkSprite(coinA1); g.position.set(x + 0.5, 0.12 + (z + 1) * 0.01, z + 0.5); g.userData.ref = { kind: 'moneda', i, cells: [[x, z]] }; scene.add(g); coinG.push(g);
+    coinActs.push(addAct(worldOf(x), g.userData.ref, x, z, '🪙 Coger'));
+  });
+  if (!S.coinSpots || S.coinSpots.day !== S.day) S.coinSpots = { day: S.day, taken: [] };
+  for (const i of S.coinSpots.taken) if (coinG[i]) { scene.remove(coinG[i]); coinActs[i].gone = true; }
+  function resetCoins() { S.coinSpots = { day: S.day, taken: [] }; coinG.forEach((g, i) => { if (!g.parent) scene.add(g); coinActs[i].gone = false; }); }
+  // músico de la plaza
+  const musA = texAsset((x) => { x.fillStyle = '#e8b88a'; x.fillRect(12, 3, 8, 8); x.fillStyle = '#1c1626'; x.fillRect(11, 2, 10, 4); x.fillStyle = '#3a2f45'; x.fillRect(10, 11, 12, 14); x.fillStyle = '#2b2233'; x.fillRect(10, 25, 4, 6); x.fillRect(18, 25, 4, 6); x.fillStyle = '#a95f2a'; x.beginPath(); x.ellipse(20, 18, 6, 4, -0.5, 0, 7); x.fill(); x.fillStyle = '#7a4520'; x.fillRect(11, 13, 9, 2); }, 32, 0.9, 1.2);
+  const musG = put(musA, RX + 21.5, 8.6); musG.userData.ref = { kind: 'musico', cells: RL([[21, 8]]) };
+  addAct('rio', musG.userData.ref, RX + 21, 8, '🎸 Escuchar');
+  // mariposas del jardín y la plaza
+  const bfDraw = f => (x) => { x.fillStyle = f ? '#e8912a' : '#d8352a'; x.fillRect(1, 3, 6, 7); x.fillRect(9, 3, 6, 7); x.fillStyle = '#2b2233'; x.fillRect(7, 2, 2, 11); x.fillRect(6, 1, 1, 2); x.fillRect(9, 1, 1, 2); };
+  const bfA1 = texAsset(bfDraw(false), 16, 0.4, 0.4), bfA2 = texAsset(bfDraw(true), 16, 0.4, 0.4);
+  const bflies = [];
+  const BFREG = [{ x0: 5, x1: 27, z0: 15, z1: 20 }, { x0: 5, x1: 27, z0: 15, z1: 20 }, { x0: RX + 6, x1: RX + 26, z0: 7, z1: 9 }];
+  for (let i = 0; i < 3; i++) {
+    const r = BFREG[i]; const g = mkSprite(bfA1); scene.add(g);
+    const b = { g, r, t: [r.x0 + Math.random() * (r.x1 - r.x0), r.z0 + Math.random() * (r.z1 - r.z0)], wt: 0, fr: 0, f: false };
+    g.position.set(b.t[0], 0.4, b.t[1]); g.userData.ref = { kind: 'mariposa', i }; bflies.push(b);
+  }
 
   /* ---------------- people & cats ---------------- */
   const startCell = { el: [12, 7], ella: [13, 7] };
@@ -263,7 +315,7 @@ export function mountGame(root) {
     const sp = S.pos && S.pos[id]; const [cx, cz] = sp && typeof sp.x === 'number' ? [sp.x, sp.z] : startCell[id];
     g.position.set(cx + 0.5, 0.1, cz + 0.5);
     g.userData.ref = { kind: 'person', id };
-    chars[id] = { id, g, path: [], busy: null, anim: 0, after: null, face: 0, dir: 0, where: sp && sp.w && (sp.w === 'rio' || sp.w === 'mat' || sp.w === 'box') ? sp.w : 'casa' };
+    chars[id] = { id, g, gateT: 1.5, path: [], busy: null, anim: 0, after: null, face: 0, dir: 0, where: sp && sp.w && (sp.w === 'rio' || sp.w === 'mat' || sp.w === 'box') ? sp.w : 'casa' };
   }
   let active = 'el';
   const cats = {};
@@ -296,6 +348,38 @@ export function mountGame(root) {
     return null;
   }
   function adjGoal(cells) { const set = new Set(cells.map(c => c[0] + ',' + c[1])); return (x, z) => { for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (set.has((x + dx) + ',' + (z + dz))) return true; return false; }; }
+  // gen9: suavizado de rutas (linea de vision) para andar recto y estable
+  function walkLine(x0, z0, x1, z1) {
+    const steps = Math.ceil(Math.hypot(x1 - x0, z1 - z0) * 4) || 1;
+    let px = x0, pz = z0;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps; const x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+      const cx = Math.floor(x), cz = Math.floor(z);
+      if (!free(cx, cz)) return false;
+      const pcx = Math.floor(px), pcz = Math.floor(pz);
+      if (cx !== pcx && cz !== pcz && (!free(cx, pcz) || !free(pcx, cz))) return false;
+      px = x; pz = z;
+    }
+    return true;
+  }
+  function smoothPath(path, sx, sz) {
+    const out = []; let ax = sx, az = sz, i = 0;
+    while (i < path.length) {
+      let j = path.length - 1;
+      while (j > i && !walkLine(ax + 0.5, az + 0.5, path[j][0] + 0.5, path[j][1] + 0.5)) j--;
+      out.push(path[j]); ax = path[j][0]; az = path[j][1]; i = j + 1;
+    }
+    return out;
+  }
+  // gen9: direccion del sprite con histéresis (nada de girar a todos lados)
+  const DIRANG = [0, -Math.PI / 2, Math.PI / 2, Math.PI];
+  const dirOf = ang => Math.abs(Math.sin(ang)) > 0.7 ? (Math.sin(ang) > 0 ? 2 : 1) : (Math.cos(ang) > 0 ? 0 : 3);
+  function faceDir(c, ang) {
+    if (c.dir === undefined || c.dir === null) { c.dir = dirOf(ang); return; }
+    let d = ang - DIRANG[c.dir]; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    if (Math.abs(d) > 1.05) c.dir = dirOf(ang);
+  }
+  const canAt = (x, z) => { const M = 0.16; return free(Math.floor(x - M), Math.floor(z - M)) && free(Math.floor(x + M), Math.floor(z - M)) && free(Math.floor(x - M), Math.floor(z + M)) && free(Math.floor(x + M), Math.floor(z + M)); };
 
   /* ---------------- HUD ---------------- */
   const top = h('div', 'g-top'); ui.append(top);
@@ -336,6 +420,27 @@ export function mountGame(root) {
   bar.append(bShop, bGoal, bBag, bReform, bZoom, bSave2);
   let reform = false;
 
+  /* ---------------- gen9: joystick táctil ---------------- */
+  const joy = h('div', 'g-joy'); const joyK = h('div', 'g-joy-k'); joy.append(joyK); ui.append(joy);
+  const joyS = { id: null, x: 0, z: 0 };
+  function joySet(e) {
+    const r = joy.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = (e.clientX - cx) / (r.width / 2), dy = (e.clientY - cy) / (r.height / 2);
+    const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+    const mm = Math.hypot(dx, dy), dz = 0.22;
+    if (mm < dz) { joyS.x = 0; joyS.z = 0; } else { const s = Math.min(1, (mm - dz) / (1 - dz)) / (mm || 1); joyS.x = dx * s; joyS.z = dy * s; }
+    joyK.style.transform = 'translate(' + Math.round(dx * 26) + 'px,' + Math.round(dy * 26) + 'px)';
+  }
+  joy.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); try { joy.setPointerCapture(e.pointerId); } catch (err) {} joyS.id = e.pointerId; joy.classList.add('on'); ensureAudio(); joySet(e); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId !== joyS.id) return; e.stopPropagation(); joySet(e); });
+  const joyEnd = e => { if (e.pointerId !== joyS.id) return; joyS.id = null; joyS.x = 0; joyS.z = 0; joy.classList.remove('on'); joyK.style.transform = ''; };
+  joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
+
+  /* ---------------- gen9: botón de acción contextual ---------------- */
+  let curAct = null;
+  const useBtn = btn('✋ Usar', () => { if (curAct) { ensureAudio(); useRef(active, curAct.ref); } }, 'g-use g-primary');
+  useBtn.style.display = 'none'; ui.append(useBtn);
+
   function missionsDone() { return MISSIONS.filter(m => S.done[m.id]).length; }
   function updateHUD() {
     coinsEl.textContent = 'Monedas ' + S.coins; dayEl.textContent = '☀️ Día ' + S.day;
@@ -347,6 +452,7 @@ export function mountGame(root) {
     catsEl.innerHTML = '';
     for (const id of ['lola', 'tinto']) { const c = S.cats[id]; catsEl.append(h('div', 'g-cat', '🐈‍⬛ ' + (id === 'lola' ? 'Lola' : 'Tinto') + '  ' + (c.hunger < 30 ? '🍽️' : '❤️'.repeat(Math.max(1, Math.round(c.love / 34)))))); }
     bGoal.textContent = 'Objetivos ' + missionsDone() + '/' + MISSIONS.length; bBag.textContent = 'Mochila'; bShop.textContent = 'Tienda';
+    joy.style.display = S.started ? '' : 'none';
   }
   function setActive(id) { active = id; follow = true; updateHUD(); }
   let follow = true;
@@ -516,15 +622,15 @@ export function mountGame(root) {
   const fadeEl = h('div', 'g-fade'); ui.append(fadeEl);
   function fade() { fadeEl.classList.add('on'); setTimeout(() => fadeEl.classList.remove('on'), 260); }
   const WORLDS = {
-    casa: { x0: 0, x1: W, z0: 0, z1: D, spawn: [15, 21] },
+    casa: { x0: 0, x1: W, z0: 0, z1: D, spawn: [15, 19] },
     rio: { x0: RIO.x0, x1: RIO.x0 + RIO.W, z0: 0, z1: RIO.D, spawn: [RIO.x0 + 4, 13] },
     mat: { x0: MAT.x0, x1: MAT.x0 + MAT.W, z0: 0, z1: MAT.D, spawn: [MAT.x0 + 12, 14] },
-    box: { x0: BOX.x0, x1: BOX.x0 + BOX.W, z0: 0, z1: BOX.D, spawn: [BOX.x0 + 10, 12] },
+    box: { x0: BOX.x0, x1: BOX.x0 + BOX.W, z0: 0, z1: BOX.D, spawn: [BOX.x0 + 10, 11] },
   };
-  function goWorld(id, to) {
+  function goWorld(id, to, sp) {
     const ch = chars[id]; const w = WORLDS[to];
-    const dest = w.spawn;
-    ch.where = to; ch.path = []; ch.busy = null; ch.after = null;
+    const dest = sp || w.spawn;
+    ch.where = to; ch.path = []; ch.busy = null; ch.after = null; ch.gateT = 1.5;
     ch.g.position.set(dest[0] + 0.5, 0.1, dest[1] + 0.5);
     if (id === active) { camT.x = dest[0] + 0.5; camT.z = dest[1] + 0.5; follow = true; }
     fade(); sfx('win');
@@ -578,7 +684,7 @@ export function mountGame(root) {
     if (ref.kind === 'cat') { const cc = cellOf(cats[ref.id].g.position); path = bfs(sx, sz, (x, z) => Math.abs(x - cc[0]) + Math.abs(z - cc[1]) <= 1 && free(x, z)); }
     else path = bfs(sx, sz, adjGoal(adjacentCells(ref)));
     if (!path) { say('No hay camino hasta ahí.'); return; }
-    ch.path = path; ch.after = () => { const p = ref.kind === 'cat' ? cats[ref.id].g.position : refPos(ref); if (p) ch.face = Math.atan2(p.x - ch.g.position.x, p.z - ch.g.position.z); fn(); }; follow = true;
+    ch.path = smoothPath(path, sx, sz); ch.after = () => { const p = ref.kind === 'cat' ? cats[ref.id].g.position : refPos(ref); if (p) ch.face = Math.atan2(p.x - ch.g.position.x, p.z - ch.g.position.z); fn(); }; follow = true;
     if (!path.length) { const a = ch.after; ch.after = null; a(); }
   }
   function busy(id, secs, label, done) { const ch = chars[id]; ch.busy = { t: 0, dur: secs, label, done }; sfx('tick'); }
@@ -606,6 +712,32 @@ export function mountGame(root) {
       if (!needEnergy(id, 20)) return;
       busy(id, 3.6, 'WOD', () => { S.energy[id] -= 20; stat('wod_' + id); earn(8); say('Calistenia en Madrid Río: +8 Monedas'); if (S.stats.wod_el && S.stats.wod_ella) mission('crossfit'); else say('WOD hecho. Falta que lo haga ' + (id === 'el' ? S.names.ella : S.names.el) + ' para el objetivo.', 3200); updateHUD(); save(); });
     });
+    if (ref.kind === 'pesca') return goDo(id, ref, () => {
+      busy(id, 2.6, '🎣', () => {
+        if (Math.random() < 0.7) { addInv('pescado', 1); spawnFloat('✨', chars[id].g.position, 1.2); sfx('coin'); say('🎣 ¡Picó! Un pescado fresquito del Manzanares. Ideal para el pescadito de Lola y Tinto.', 3400); }
+        else say('🎣 Hoy no pican... dale un rato al río y prueba otra vez.', 2800);
+        updateHUD(); save();
+      });
+    });
+    if (ref.kind === 'moneda') {
+      const i = ref.i; if (S.coinSpots.taken.includes(i)) return;
+      return goDo(id, ref, () => {
+        S.coinSpots.taken.push(i); const g = coinG[i]; spawnFloat('✨', g.position, 0.5); scene.remove(g); coinActs[i].gone = true;
+        earn(3); sfx('coin'); say(['🪙 ¡Una moneda brillante! +3 Monedas', '🪙 ¡Brilli brilli entre el césped! +3 Monedas', '🪙 Tesoro del paseo: +3 Monedas'][Math.floor(Math.random() * 3)], 2600); save();
+      });
+    }
+    if (ref.kind === 'musico') return goDo(id, ref, () => {
+      busy(id, 2.2, '🎸', () => {
+        const first = S.musicoDay !== S.day; if (first) { S.musicoDay = S.day; S.energy[id] = Math.min(100, S.energy[id] + 6); }
+        const L = ['🎸 El músico de la plaza toca una rumba: "¡por la pareja de Legazpi!"', '🎸 Suena una soleá y Ella marca el compás con el pie.', '🎸 "¡Olé esos gatos negros!", dice entre copla y copla.'];
+        say(L[Math.floor(Math.random() * L.length)] + (first ? ' +6 energía' : ''), 3400); sfx('win'); updateHUD(); save();
+      });
+    });
+    if (ref.kind === 'mariposa') {
+      const b = bflies[ref.i]; earn(1); spawnFloat('✨', b.g.position, 0.6); sfx('coin');
+      say(['🦋 La atrapaste un segundo: te deja polvo brillante. +1 Moneda', '🦋 Juega contigo y se escapa riéndose. +1 Moneda'][Math.floor(Math.random() * 2)], 2400);
+      b.t = [b.r.x0 + Math.random() * (b.r.x1 - b.r.x0), b.r.z0 + Math.random() * (b.r.z1 - b.r.z0)]; b.wt = 1.5; save(); return;
+    }
     if (ref.kind !== 'furn') return;
     const f = ref.f, c = CATALOG[f.type];
     if (!c.use) { say(c.flavor || c.name); return; }
@@ -614,7 +746,7 @@ export function mountGame(root) {
       if (k === 'cook') return openCook(id);
       if (k === 'fridge') { say('🧊 En la nevera no hay mucho: compra en la Tienda > Mercado.'); return openBag(); }
       if (k === 'sink') { busy(id, 1.4, '🚰', () => { S.can = 6; say('💧 Regadera llena.'); updateHUD(); save(); }); return; }
-      if (k === 'bed') { busy(id, 3, '😴', () => { S.energy[id] = 100; S.day++; for (const p of S.plots) if (p.type) p.water = Math.max(0, p.water); say(nm + ' ha dormido como un tronco. Día ' + S.day + '.'); updateHUD(); save(); }); return; }
+      if (k === 'bed') { busy(id, 3, '😴', () => { S.energy[id] = 100; S.day++; resetCoins(); for (const p of S.plots) if (p.type) p.water = Math.max(0, p.water); say(nm + ' ha dormido como un tronco. Día ' + S.day + '.'); updateHUD(); save(); }); return; }
       if (k === 'table') return openEat(id);
       if (k === 'tv') { busy(id, 3, '📺', () => { S.energy[id] = Math.min(100, S.energy[id] + 10); say(nm + ' ve un capítulo con un gato encima.'); updateHUD(); }); return; }
       if (k === 'pc') { if (!needEnergy(id, 15)) return; busy(id, 3.2, '💻', () => { const g = id === 'el' ? 30 : 18; S.energy[id] -= 15; stat('work'); earn(g); say('💻 Trabajo hecho: +' + g + ' 🪙' + (id === 'el' ? ' (de informático, se nota)' : '')); mission('trabajo'); updateHUD(); }); return; }
@@ -667,11 +799,85 @@ export function mountGame(root) {
       for (const [k, n] of dishes) body.append(h('div', 'g-row', [h('span', 'g-row-n', ITEMS[k].e + ' ' + ITEMS[k].n + ' ×' + n + '  (+' + ITEMS[k].eat + ' energía)'), btn('Comer', () => { closeSheet(); busy(id, 2.4, '😋', () => { addInv(k, -1); S.energy[id] = Math.min(100, S.energy[id] + ITEMS[k].eat); say('😋 ¡Qué rico!'); updateHUD(); save(); }); }, 'g-primary')]));
     });
   }
-  function petCat(id, cid) {
-    const c = cats[cid]; c.pet = 2.2; c.path = []; const p = chars[id]; busy(id, 1.6, '🤚', () => { S.cats[cid].love = Math.min(100, S.cats[cid].love + 25); stat('pets'); spawnFloat('❤️', c.g.position, 1.0); sfx('purr'); if (S.stats.pets >= 4) mission('mimos'); updateHUD(); save(); });
-  }
+  function petCat(id, cid) { openCatView(cid); }
   const fl_ = [];
   function spawnFloat(txt, pos, y) { const FL = { '❤️': '+ mimo', '✨': '¡Listo!', '😋': 'ñam' }; txt = FL[txt] || (stripE(txt) || '+'); const e = h('div', 'g-fl', txt); floats.append(e); fl_.push({ e, pos: pos.clone(), y: y || 1, t: 0 }); }
+
+  /* ---------------- gen9: vista de cerca de Lola y Tinto ---------------- */
+  const catv = h('div', 'g-catv'); ui.append(catv);
+  let catvOn = null, catvCtx = null, catvT = 0, catvPet = 0, catvToy = false, catvToyPt = null, catvPounce = 0;
+  function openCatView(cid) {
+    catvOn = cid; catvT = 0; catvPet = 0; catvToy = false; catvToyPt = null; catvPounce = 0; catv.innerHTML = '';
+    const name = cid === 'lola' ? 'Lola' : 'Tinto';
+    const cvs = h('canvas', 'g-catv-c'); cvs.width = 140; cvs.height = 140;
+    const hearts = h('div', 'g-catv-h');
+    const hint = h('div', 'g-catv-hint', 'Pasa el dedo por el lomo para acariciar a ' + name + '.');
+    const bToy = btn('🪶 Jugar', () => { catvToy = !catvToy; catvToyPt = null; bToy.classList.toggle('on', catvToy); hint.textContent = catvToy ? 'Mueve la pluma por la pantalla: ' + name + ' la sigue con la mirada.' : 'Pasa el dedo por el lomo para acariciar a ' + name + '.'; }, '');
+    const bClose = btn('Volver al mapa', () => closeCatView(), 'g-primary');
+    catv.append(h('div', 'g-catv-p', [h('div', 'g-catv-t', name), cvs, hearts, hint, h('div', 'g-catv-b', [bToy, bClose])]));
+    catv.classList.add('on'); catvCtx = cvs.getContext('2d');
+    let lastPt = null, purrT = 0;
+    const onStroke = e => {
+      const r = cvs.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width * 140, py = (e.clientY - r.top) / r.height * 140;
+      if (catvToy) { catvToyPt = [px, py]; return; }
+      catvPet = 1.4;
+      S.cats[cid].love = Math.min(100, S.cats[cid].love + 3);
+      const hh = h('div', 'g-catv-heart', '❤️'); hh.style.left = (px / 140 * 100) + '%'; hh.style.top = (py / 140 * 100) + '%'; hearts.append(hh); setTimeout(() => hh.remove(), 1100);
+      const now = performance.now(); if (now - purrT > 600) { purrT = now; sfx('purr'); }
+      updateHUD();
+    };
+    cvs.addEventListener('pointerdown', e => { e.preventDefault(); try { cvs.setPointerCapture(e.pointerId); } catch (err) {} lastPt = [e.clientX, e.clientY]; onStroke(e); });
+    cvs.addEventListener('pointermove', e => { if (!lastPt) return; const d = Math.hypot(e.clientX - lastPt[0], e.clientY - lastPt[1]); if (d > 12) { lastPt = [e.clientX, e.clientY]; onStroke(e); } });
+    const endStr = () => { lastPt = null; };
+    cvs.addEventListener('pointerup', endStr); cvs.addEventListener('pointercancel', endStr);
+    stat('pets'); if (S.stats.pets >= 4) mission('mimos');
+    cats[cid].pet = 2.2; sfx('purr');
+  }
+  function closeCatView() { if (!catvOn) return; const cid = catvOn; catvOn = null; catv.classList.remove('on'); cats[cid].pet = 2.2; say('❤️ ' + (cid === 'lola' ? 'Lola' : 'Tinto') + ' ronronea.'); updateHUD(); save(); }
+  function drawCatView(ctx, cid, t) {
+    ctx.clearRect(0, 0, 140, 140); ctx.imageSmoothingEnabled = false;
+    const dark = '#17141c', dark2 = '#241f2e', line = '#0c0a10';
+    const blink = (t % 3.4) < 0.14, purr = catvPet > 0, pounce = catvPounce > 0;
+    const sq = pounce ? 6 : 0;
+    const body = (x, y, w, h2, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h2); };
+    const tw = Math.sin(t * (purr ? 9 : 2.4)) * 14;
+    ctx.fillStyle = dark; ctx.save(); ctx.translate(112, 108 + sq); ctx.rotate(tw * Math.PI / 180); ctx.fillRect(-6, -34, 12, 34); ctx.restore();
+    body(38, 78 + sq, 64, 44 - sq, dark); body(34, 92 + sq, 72, 30 - sq, dark);
+    body(30, 100 + sq, 16, 22, dark2); body(94, 100 + sq, 16, 22, dark2);
+    body(52, 118, 14, 8, dark2); body(74, 118, 14, 8, dark2);
+    const hy = 30 + (purr ? 2 : 0);
+    body(42, hy, 56, 46, dark); body(46, hy + 40, 48, 8, dark);
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.moveTo(44, hy + 6); ctx.lineTo(50, hy - 16); ctx.lineTo(62, hy + 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(96, hy + 6); ctx.lineTo(90, hy - 16); ctx.lineTo(78, hy + 2); ctx.fill();
+    ctx.fillStyle = '#5b3a4a';
+    ctx.beginPath(); ctx.moveTo(48, hy + 2); ctx.lineTo(51, hy - 9); ctx.lineTo(58, hy); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(92, hy + 2); ctx.lineTo(89, hy - 9); ctx.lineTo(82, hy); ctx.fill();
+    const lookX = catvToy && catvToyPt ? Math.max(-3, Math.min(3, (catvToyPt[0] - 70) / 18)) : 0;
+    const lookY = catvToy && catvToyPt ? Math.max(-2, Math.min(2, (catvToyPt[1] - 60) / 24)) : 0;
+    const eyeY = hy + 20, cloudy = cid === 'tinto';
+    for (const side of [0, 1]) {
+      const ex = side ? 82 : 50; const isCloudy = cloudy && side === 0;
+      if (blink) { ctx.fillStyle = line; ctx.fillRect(ex - 2, eyeY + 2, 16, 3); continue; }
+      ctx.fillStyle = isCloudy ? '#8fa3b8' : '#f2c631';
+      ctx.fillRect(ex, eyeY, 12, purr ? 6 : 10);
+      if (!purr) { ctx.fillStyle = line; ctx.fillRect(ex + 4 + lookX, eyeY + 1 + lookY, 4, 8); }
+      if (isCloudy) { ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(ex + 2, eyeY + 2, 3, 3); }
+      else { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(ex + 2 + lookX, eyeY + 1 + lookY, 2, 2); }
+    }
+    ctx.fillStyle = '#3a2f45'; ctx.fillRect(66, eyeY + 14, 8, 5);
+    ctx.fillStyle = line; ctx.fillRect(68, eyeY + 19, 2, 4); ctx.fillRect(64, eyeY + 22, 5, 2); ctx.fillRect(72, eyeY + 22, 5, 2);
+    if (purr) { ctx.fillStyle = '#7a4a56'; ctx.fillRect(66, eyeY + 24, 8, 4); }
+    ctx.strokeStyle = '#4a4258'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (const [sx2, sy2, ex2, ey2] of [[40, eyeY + 14, 24, eyeY + 10], [40, eyeY + 18, 24, eyeY + 20], [100, eyeY + 14, 116, eyeY + 10], [100, eyeY + 18, 116, eyeY + 20]]) { ctx.moveTo(sx2, sy2); ctx.lineTo(ex2, ey2); }
+    ctx.stroke();
+    if (catvToy && catvToyPt) {
+      const [fx, fy] = catvToyPt;
+      ctx.strokeStyle = '#8a6a40'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx, fy + 16); ctx.lineTo(fx, fy); ctx.stroke();
+      ctx.fillStyle = '#5fb4d8'; ctx.fillRect(fx - 5, fy - 8, 10, 10); ctx.fillStyle = '#7fd0f0'; ctx.fillRect(fx - 3, fy - 10, 6, 4);
+    }
+  }
 
   /* ---------------- input ---------------- */
   const ray = new THREE.Raycaster(); const mouse = new THREE.Vector2(); const gplane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -699,14 +905,24 @@ export function mountGame(root) {
   function movePlace(pt) { if (!place || !pt) return; const [fw, fd] = fp(place.type, place.r); place.x = Math.max(0, Math.min(W - fw, Math.floor(pt.x - (fw - 1) / 2 - 0.0))); place.z = Math.max(0, Math.min(D - fd, Math.floor(pt.z - (fd - 1) / 2))); if (CATALOG[place.type].wall) { place.z = 0; place.x = Math.max(8, Math.min(26, Math.floor(pt.x))); } refreshGhost(); }
   function onTap(e) {
     ensureAudio();
-    if (!S.started) return;
+    if (!S.started || catvOn) return;
     const { ref, pt } = pick(e);
     if (place) { movePlace(pt); return; }
     if (sheetWrap.classList.contains('on')) return;
     if (reform && ref && ref.kind === 'furn' && !CATALOG[ref.f.type].fixed) { startPlace(ref.f.type, ref.f); return; }
     if (ref && ref.kind === 'person') { setActive(ref.id); return; }
     if (ref) { useRef(active, ref); return; }
-    if (pt) { const cx = Math.floor(pt.x), cz = Math.floor(pt.z); if (cx < 0 || cz < 0 || cx >= GW || cz >= GD) return; const ch = chars[active]; if (ch.busy) return; const [sx, sz] = cellOf(ch.g.position); const path = bfs(sx, sz, (x, z) => x === cx && z === cz); if (path && free(cx, cz)) { ch.path = path; ch.after = null; follow = true; spawnFloat('📍', new THREE.Vector3(cx + 0.5, 0, cz + 0.5), 0.1); } else say('Ahí no se puede pasar.'); }
+    if (pt) {
+      const ch = chars[active]; if (ch.busy) return;
+      const tx = Math.floor(pt.x), tz = Math.floor(pt.z);
+      if (tx < 0 || tz < 0 || tx >= GW || tz >= GD) return;
+      let goal = free(tx, tz) ? [tx, tz] : null;
+      if (!goal) { let bd = 1e9; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const nx = tx + dx, nz = tz + dz; if (!free(nx, nz)) continue; const d = Math.hypot(nx + 0.5 - pt.x, nz + 0.5 - pt.z); if (d < bd) { bd = d; goal = [nx, nz]; } } }
+      const [sx, sz] = cellOf(ch.g.position);
+      const path = goal && bfs(sx, sz, (x, z) => x === goal[0] && z === goal[1]);
+      if (path) { ch.path = smoothPath(path, sx, sz); ch.after = null; follow = true; spawnFloat('📍', new THREE.Vector3(goal[0] + 0.5, 0, goal[1] + 0.5), 0.1); }
+      else say('Ahí no se puede pasar.');
+    }
   }
   function ensureAudio() { try { sfx('init'); } catch (err) {} }
 
@@ -768,24 +984,32 @@ export function mountGame(root) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
     // characters
     for (const id of ['el', 'ella']) {
-      const c = chars[id]; const moving = moveAlong(c, c.path, 3.7, dt);
+      const c = chars[id]; let moving = false;
+      if (id === active && (joyS.x || joyS.z) && !c.busy) {
+        if (c.path.length || c.after) { c.path = []; c.after = null; }
+        const sp = 4.4 * dt, p = c.g.position;
+        const vx = joyS.x * sp, vz = joyS.z * sp;
+        if (canAt(p.x + vx, p.z)) p.x += vx;
+        if (canAt(p.x, p.z + vz)) p.z += vz;
+        c.face = Math.atan2(joyS.x, joyS.z); moving = true; follow = true;
+      } else moving = moveAlong(c, c.path, 3.7, dt);
       if (!moving && c.after) { const a = c.after; c.after = null; a(); }
       if (c.busy) { c.busy.t += dt; if (c.busy.t >= c.busy.dur) { const b = c.busy; c.busy = null; b.done(); updateHUD(); save(); } }
       c.anim += dt * (moving ? 10 : 0);
-      if (moving) { const ang = c.face; c.dir = Math.abs(Math.sin(ang)) > 0.7 ? (Math.sin(ang) > 0 ? 2 : 1) : (Math.cos(ang) > 0 ? 0 : 3); } else if (c.after === null && c.busy === null) {}
-      if (!moving && c.busy) { const a = c.face; c.dir = Math.abs(Math.sin(a)) > 0.7 ? (Math.sin(a) > 0 ? 2 : 1) : (Math.cos(a) > 0 ? 0 : 3); }
+      if (moving) faceDir(c, c.face); else if (c.after === null && c.busy === null) {}
+      if (!moving && c.busy) faceDir(c, c.face);
       const fr = moving ? 1 + (Math.floor(c.anim) % 2) : (c.busy && Math.floor(clock * 6) % 2 ? 1 : 0);
       const key = id + c.dir + fr; if (c.key !== key) { c.key = key; setAsset(c.g, personAsset(id, c.dir, fr)); }
-      c.g.position.y = 0.1 + c.g.position.z * 0.01 + 0.002 + (moving ? Math.abs(Math.sin(c.anim * Math.PI)) * 0.05 : 0);
+      c.g.position.y = 0.1 + c.g.position.z * 0.01 + 0.002 + (moving ? Math.abs(Math.sin(c.anim * Math.PI)) * 0.035 : 0);
       // idle wander for the non-active one
-      if (id !== active && !moving && !c.busy && Math.random() < dt * 0.15) {
+      if (id !== active && !moving && !c.busy && Math.random() < dt * 0.08) {
         const [sx, sz] = cellOf(c.g.position);
         const wb2 = c.where === 'rio' ? { x0: RIO.x0 + 1, x1: RIO.x0 + RIO.W - 2, z0: 7, z1: RIO.D - 1 }
           : c.where === 'mat' ? { x0: MAT.x0 + 2, x1: MAT.x0 + MAT.W - 3, z0: 3, z1: MAT.D - 4 }
           : c.where === 'box' ? { x0: BOX.x0 + 2, x1: BOX.x0 + BOX.W - 3, z0: 2, z1: BOX.D - 3 }
           : { x0: 6, x1: 25, z0: 4, z1: 10 };
         const gx = wb2.x0 + Math.floor(Math.random() * (wb2.x1 - wb2.x0)), gz = wb2.z0 + Math.floor(Math.random() * (wb2.z1 - wb2.z0));
-        if (free(gx, gz)) { const p = bfs(sx, sz, (x, z) => x === gx && z === gz); if (p && p.length < 16) c.path = p; }
+        if (free(gx, gz)) { const p = bfs(sx, sz, (x, z) => x === gx && z === gz); if (p && p.length < 16) c.path = smoothPath(p, sx, sz); }
       }
     }
     // cats
@@ -823,12 +1047,41 @@ export function mountGame(root) {
     // mundo: salida de casa, puente y patos
     for (const id of ['el', 'ella']) {
       const ch2 = chars[id]; const [cx2, cz2] = cellOf(ch2.g.position);
-      if (ch2.where === 'casa' && cz2 >= 20 && cx2 >= 13 && cx2 <= 17 && !ch2.busy && !ch2.path.length) goWorld(id, 'rio');
+      if (ch2.gateT > 0) ch2.gateT -= dt; else if (ch2.where === 'casa' && cz2 >= 20 && cx2 >= 13 && cx2 <= 17 && !ch2.busy && !ch2.path.length) goWorld(id, 'rio');
       else if (ch2.where === 'rio' && cz2 >= 22) mission('puente');
       else if (ch2.where === 'rio' && cz2 <= 7 && cx2 >= RIO.x0 + 15 && cx2 <= RIO.x0 + 21 && !ch2.busy && !ch2.path.length) goWorld(id, 'mat');
       else if (ch2.where === 'rio' && cx2 >= RIO.x0 + 32 && cz2 >= 11 && cz2 <= 13 && !ch2.busy && !ch2.path.length) goWorld(id, 'box');
+      else if (ch2.where === 'rio' && cx2 <= RIO.x0 + 2 && cz2 >= 11 && cz2 <= 13 && !ch2.busy && !ch2.path.length) goWorld(id, 'casa');
+      else if (ch2.where === 'mat' && cz2 >= 15 && cx2 >= MAT.x0 + 12 && cx2 <= MAT.x0 + 13 && !ch2.busy && !ch2.path.length) goWorld(id, 'rio', [RIO.x0 + 18, 9]);
+      else if (ch2.where === 'box' && cz2 >= 12 && cx2 >= BOX.x0 + 9 && cx2 <= BOX.x0 + 10 && !ch2.busy && !ch2.path.length) goWorld(id, 'rio', [RIO.x0 + 31, 12]);
     }
     for (const dk of ducks) { const nx = dk.g.position.x + dk.v * dt; dk.g.position.x = nx > RIO.x0 + 35 ? RIO.x0 + 1 : nx; dk.g.position.y = 0.1 + dk.z * 0.01 + Math.sin(clock * 2 + dk.z) * 0.03; }
+    // gen9: botón de acción contextual
+    { const chA = chars[active]; let best = null, bd = 2.1;
+      if (S.started && !catvOn && !sheetWrap.classList.contains('on') && !chA.busy) {
+        const p = chA.g.position;
+        for (const a of ACTS) { if (a.gone || a.world !== chA.where) continue; const d = Math.hypot(a.x + 0.5 - p.x, a.z + 0.5 - p.z); if (d < bd) { bd = d; best = a; } }
+        if (chA.where === 'casa') for (const cid of ['lola', 'tinto']) { const cp = cats[cid].g.position; const d = Math.hypot(cp.x - p.x, cp.z - p.z); if (d < bd) { bd = d; best = { ref: { kind: 'cat', id: cid }, label: '❤️ ' + (cid === 'lola' ? 'Lola' : 'Tinto') }; } }
+      }
+      curAct = best; useBtn.style.display = best ? '' : 'none'; if (best) useBtn.textContent = best.label;
+    }
+    // gen9: mariposas y monedas brillantes
+    for (const b of bflies) {
+      b.wt -= dt;
+      if (b.wt <= 0) { b.wt = 2 + Math.random() * 3; b.t = [b.r.x0 + Math.random() * (b.r.x1 - b.r.x0), b.r.z0 + Math.random() * (b.r.z1 - b.r.z0)]; }
+      const p = b.g.position, dx = b.t[0] - p.x, dz = b.t[1] - p.z, d = Math.hypot(dx, dz);
+      if (d > 0.05) { const sp = Math.min(1.4 * dt, d); p.x += dx / d * sp; p.z += dz / d * sp; }
+      p.y = 0.35 + Math.sin(clock * 6 + b.r.x0) * 0.08 + p.z * 0.01;
+      b.fr += dt; if (b.fr > 0.18) { b.fr = 0; b.f = !b.f; setAsset(b.g, b.f ? bfA2 : bfA1); }
+    }
+    for (let i = 0; i < coinG.length; i++) { const g = coinG[i]; if (!g.parent) continue; g.position.y = 0.14 + Math.sin(clock * 3 + i * 1.7) * 0.04 + (g.position.z + 1) * 0.01; }
+    // gen9: vista de gato
+    if (catvOn) {
+      catvT += dt; catvPet = Math.max(0, catvPet - dt);
+      if (catvToy && catvToyPt && Math.random() < dt * 0.5) catvPounce = 0.4;
+      catvPounce = Math.max(0, catvPounce - dt);
+      if (catvCtx) drawCatView(catvCtx, catvOn, catvT);
+    }
     updateCam(dt);
     renderer.setClearColor((chars[active].where === 'mat' || chars[active].where === 'box') ? 0x14141a : 0x3f7a35);
     renderer.render(scene, cam);
