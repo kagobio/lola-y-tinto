@@ -2,7 +2,7 @@
 import { THREE } from './models.js';
 import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, catAsset, plotAsset } from './art3.js';
 import { startMusic, stopMusic, sfx, setMuted } from './audio.js';
-import { MATBG, BOXBG } from './assets.js';
+import { MATBG, BOXBG } from './28-assets.js';
 
 const W = 31, D = 23, GROW = 14;
 const RIO = { x0: 34, W: 36, D: 24 };
