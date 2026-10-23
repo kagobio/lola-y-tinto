@@ -324,6 +324,10 @@ export function mountGame(root) {
     g.position.set(b.t[0], 0.4, b.t[1]); g.userData.ref = { kind: 'mariposa', i }; bflies.push(b);
   }
 
+  /* ---------------- pathing base ---------------- */
+  const cellOf = p => [Math.max(0, Math.min(GW - 1, Math.floor(p.x))), Math.max(0, Math.min(GD - 1, Math.floor(p.z)))];
+  const free = (x, z) => x >= 0 && z >= 0 && x < GW && z < GD && terr[x][z] === 1 && blocked[x][z] === 0 && !statik[x][z];
+
   /* ---------------- people & cats ---------------- */
   const startCell = { el: [12, 7], ella: [13, 7] };
   const chars = {};
@@ -349,8 +353,6 @@ export function mountGame(root) {
   const prog = h('div', 'g-prog'); prog.append(h('div', 'g-prog-bar'), h('span', '')); floats.append(prog); prog.style.display = 'none';
 
   /* ---------------- pathing ---------------- */
-  const cellOf = p => [Math.max(0, Math.min(GW - 1, Math.floor(p.x))), Math.max(0, Math.min(GD - 1, Math.floor(p.z)))];
-  const free = (x, z) => x >= 0 && z >= 0 && x < GW && z < GD && terr[x][z] === 1 && blocked[x][z] === 0 && !statik[x][z];
   function bfs(sx, sz, goal) {
     const key = (x, z) => x * GD + z; const prev = new Map([[key(sx, sz), null]]); const q = [[sx, sz]];
     if (goal(sx, sz)) return [];
@@ -1415,4 +1417,4 @@ export function mountGame(root) {
   api.audioDebug = audioDebug;
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
-  }
+                                                                                                                                                      }
