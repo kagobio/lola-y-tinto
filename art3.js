@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { THREE } from './models.js';
-import { BG, MATBG, BOXBG, SPR } from './28-assets.js';
-import { RIOBG } from './riobg2.js';
+import { BG, RIOBG, MATBG, BOXBG, SPR } from './28-assets.js';
 import { NPCSPR } from './npc-assets.js';
 Object.assign(SPR, NPCSPR);
 export const PPU = 64;
