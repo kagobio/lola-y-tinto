@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { THREE } from './models.js';
-import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, catAsset, plotAsset } from './art3.js';
+import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, npcAsset, catAsset, plotAsset } from './art3.js';
 import { startMusic, stopMusic, sfx, setMuted , audioDebug } from './audio.js';
 import { MATBG, BOXBG } from './28-assets.js';
 
@@ -178,13 +178,16 @@ export function mountGame(root) {
   // obstáculos del parque
   rstat(2, 7, 5, 9);        // edificio gris (Cineteca)
   rstat(27, 7, 34, 8);      // jardín derecho de la plaza
-  rstat(17, 7, 18, 8);      // fuente circular de la plaza
+  for (let fx = 59; fx <= 63; fx++) for (let fz = 11; fz <= 13; fz++) statik[fx][fz] = 1; // fuente circular de la plaza (medida visual: x59-63, z11-13)
   rstat(30, 10, 31, 11);    // kiosco
   rstat(0, 13, 2, 14); rstat(31, 13, 35, 14); // arboledas del paseo
   rstat(1, 12, 1, 12);      // cartel "A casa"
   rstat(28, 13, 29, 14);    // estación de calistenia
   rstat(0, 22, 1, 23); rstat(32, 22, 35, 23); rstat(22, 22, 22, 22); // orilla sur
   for (const [bx, bz] of [[7, 7], [12, 7], [22, 7], [12, 11], [13, 11], [23, 11], [24, 11], [4, 12], [27, 12], [2, 22], [3, 22], [10, 22], [11, 22], [23, 22]]) statik[rX(bx)][rZ(bz)] = 1; // árboles de plaza y bancos
+  statik[75][18] = 0; // paseo abierto junto al kiosco: acera pintada sin obstáculo (área verificada con overlay)
+  statik[73][21] = 1; statik[73][22] = 1; // jardinera con árbol pintada (verificado con dbgPick)
+  statik[71][19] = 1; // farola pintada en la acera (verificado con dbgPick)
   // --- Matadero interior (MAT) y box de CrossFit (BOX) ---
   const MX = MAT.x0, BXX = BOX.x0;
   const mX = x => MX + Math.round(x * MK), mZ = z => Math.round(z * MK);
@@ -204,7 +207,7 @@ export function mountGame(root) {
   bstat(2, 4, 2, 7);          // rig izquierdo
   bstat(17, 4, 18, 6);        // rig derecho con anillas
   bstat(16, 2, 16, 4);        // cuerda de trepar
-  bstat(7, 9, 9, 11);         // cajas pliométricas (x10..11 libres: pasillo puerta)
+  for (let px2 = 147; px2 <= 152; px2++) for (let pz2 = 13; pz2 <= 17; pz2++) statik[px2][pz2] = 1; // cajas pliométricas (pila pintada medida: x147.7-152.1, z13.3-17.4; se rodea por el este)
   bstat(2, 11, 3, 12);        // bici de asalto
   bstat(17, 10, 17, 12);      // pila de discos
   // box de CrossFit: edificio-isla al este del paseo de Madrid Río, puerta al sur
@@ -255,7 +258,7 @@ export function mountGame(root) {
   zoneRef('gymout', RL([[28, 13], [29, 13], [28, 14], [29, 14]]));
   const signRio = put(ART.cartel(), RX + 1.5 * RK, 12.8 * RK); signRio.userData.ref = { kind: 'gate', to: 'casa', cells: RL([[1, 12]]) };
   const signCasa = put(ART.cartel(), 13.4, 22.7); signCasa.userData.ref = { kind: 'gate', to: 'rio', cells: [[13, 22]] };
-  const signMat = put(ART.cartel(), RX + 17.5 * RK, 8.6 * RK); signMat.userData.ref = { kind: 'gate', to: 'mat', cells: RL([[17, 8]]) };
+  const signMat = put(ART.cartel(), 61.2, 15.2); signMat.userData.ref = { kind: 'gate', to: 'mat', cells: [[61, 14]] };
   const signBox = put(ART.cartel(), RX + 33.5 * RK, 13.6 * RK); signBox.userData.ref = { kind: 'gate', to: 'box', cells: RL([[33, 13]]) };
   put(ART.gymout(), RX + 29.4 * RK, 15.05 * RK);
   const ducks = [];
@@ -272,7 +275,7 @@ export function mountGame(root) {
   zoneRef('expo', ML([[17, 5], [18, 5], [19, 5], [20, 5], [21, 5], [22, 5], [17, 6], [18, 6], [19, 6], [20, 6], [21, 6], [22, 6], [17, 7], [18, 7], [19, 7], [20, 7], [21, 7], [22, 7]]), { n: 2 });
   zoneRef('expo', ML([[10, 9], [11, 9], [12, 9], [13, 9], [14, 9], [15, 9], [16, 9], [10, 10], [11, 10], [12, 10], [13, 10], [14, 10], [15, 10], [16, 10], [10, 11], [11, 11], [12, 11], [13, 11], [14, 11], [15, 11], [16, 11]]), { n: 3 });
   zoneRef('cineteca', ML([[3, 12], [4, 12], [5, 12], [6, 12], [3, 13], [4, 13], [5, 13], [6, 13]]));
-  const infoMat = put(ART.cartel(), MX + 15.5 * MK, 14.6 * MK); infoMat.userData.ref = { kind: 'matainfo', cells: ML([[15, 14]]) }; statik[mX(15)][mZ(14)] = 1;
+  const infoMat = put(ART.cartel(), MX + 15.5 * MK, 14.6 * MK); infoMat.userData.ref = { kind: 'matainfo', cells: ML([[15, 14]]) }; statik[mX(15) + 1][mZ(14)] = 1;
   const exitMat = put(ART.cartel(), MX + 12.5 * MK, 16.6 * MK); exitMat.userData.ref = { kind: 'gate', to: 'rio', cells: ML([[12, 16]]) }; statik[mX(12)][mZ(16)] = 1;
   zoneRef('wod', BL([[2, 4], [2, 5], [2, 6], [2, 7]]), { st: 'el rig' });
   zoneRef('wod', BL([[17, 4], [18, 4], [17, 5], [18, 5], [17, 6], [18, 6]]), { st: 'las anillas' });
@@ -645,7 +648,7 @@ export function mountGame(root) {
     casa: { x0: 0, x1: W, z0: 0, z1: D, spawn: [15, 19] },
     rio: { x0: RIO.x0, x1: RIO.x0 + RIO.W, z0: 0, z1: RIO.D, spawn: [RIO.x0 + 6, 19] },
     mat: { x0: MAT.x0, x1: MAT.x0 + MAT.W, z0: 0, z1: MAT.D, spawn: [MAT.x0 + 19, 22] },
-    box: { x0: BOX.x0, x1: BOX.x0 + BOX.W, z0: 0, z1: BOX.D, spawn: [BOX.x0 + 15, 16] },
+    box: { x0: BOX.x0, x1: BOX.x0 + BOX.W, z0: 0, z1: BOX.D, spawn: [BOX.x0 + 16, 18] },
   };
   function goWorld(id, to, sp) {
     const ch = chars[id]; const w = WORLDS[to];
@@ -1066,17 +1069,17 @@ export function mountGame(root) {
 
   /* ---------------- gen11: bocadillos, charlas, vecinos y minijuegos ---------------- */
   const npcDefs = [
-    { id: 'vecina', c: '#c2547a', hair: '#4a2f22', wps: [[RX + 8, 12], [RX + 30, 12]], v: 1.5, lines: ['Qué día tan bueno para el río.', 'Vuestros gatitos son famosos en el portal.', 'El Matadero hoy tiene expo nueva.'] },
+    { id: 'vecina', c: '#c2547a', hair: '#4a2f22', wps: [[RX + 8, 11], [RX + 22, 11]], v: 1.5, lines: ['Qué día tan bueno para el río.', 'Vuestros gatitos son famosos en el portal.', 'El Matadero hoy tiene expo nueva.'] },
     { id: 'corredor', c: '#d8483a', hair: '#1c1626', wps: [[RX + 4, 19], [RX + 52, 19]], v: 3.2, lines: ['Voy a por mi mejor marca hasta el puente.', '¡A ritmo, a ritmo!'] },
     { id: 'abuelo', c: '#7a8a99', hair: '#d8d8d8', wps: [[RX + 6, 34], [RX + 25, 34]], v: 0.9, lines: ['El Manzanares baja alegre hoy.', 'A vuestra edad yo también pescaba aquí.'] },
-    { id: 'miro', name: 'Miro', c: '#3a6ea5', hair: '#2b2018', wps: [[RX + 10, 12], [RX + 28, 12]], v: 1.3, lines: ['Nina y yo no perdemos un atardecer en el río.', 'Nina, mira: los patos de siempre.', 'Este banco es el nuestro desde hace años.'] },
-    { id: 'nina', name: 'Nina', c: '#d88ab0', hair: '#6a3a1a', wps: [[RX + 10, 12.9], [RX + 28, 12.9]], v: 1.3, lines: ['Miro siempre encuentra el mejor banco.', 'Miro, un helado del kiosco y nos volvemos.', 'Qué suerte vivir tan cerca del río.'] },
-    { id: 'maria', name: 'María', c: '#5a9a4a', hair: '#1c1626', wps: [[RX + 8, 33.2], [RX + 24, 33.2]], v: 0.95, lines: ['Dani, luego pasamos por el mercadillo.', 'Con Dani hasta un paseo largo se hace corto.', 'Los gatos de los vecinos son unos artistas.'] },
-    { id: 'dani', name: 'Dani', c: '#c98a2a', hair: '#3a2a1a', wps: [[RX + 8, 34.1], [RX + 24, 34.1]], v: 0.95, lines: ['María y yo ya nos sabemos cada puente.', 'María, un día nos apuntamos al WOD del box.', 'Este paseo es el mejor gimnasio gratis.'] },
+    { id: 'miro', name: 'Miro', c: '#3a6ea5', hair: '#2b2018', wps: [[RX + 10, 12], [RX + 21, 12]], v: 1.3, lines: ['Nina y yo no perdemos un atardecer en el río.', 'Nina, mira: los patos de siempre.', 'Este banco es el nuestro desde hace años.'] },
+    { id: 'nina', name: 'Nina', c: '#d88ab0', hair: '#6a3a1a', wps: [[RX + 10, 12.9], [RX + 21, 12.9]], v: 1.3, lines: ['Miro siempre encuentra el mejor banco.', 'Miro, un helado del kiosco y nos volvemos.', 'Qué suerte vivir tan cerca del río.'] },
+    { id: 'maria', name: 'María', c: '#5a9a4a', hair: '#1c1626', wps: [[RX + 8, 34.2], [RX + 24, 34.2]], v: 0.95, lines: ['Dani, luego pasamos por el mercadillo.', 'Con Dani hasta un paseo largo se hace corto.', 'Los gatos de los vecinos son unos artistas.'] },
+    { id: 'dani', name: 'Dani', c: '#c98a2a', hair: '#3a2a1a', wps: [[RX + 8, 34.9], [RX + 24, 34.9]], v: 0.95, lines: ['María y yo ya nos sabemos cada puente.', 'María, un día nos apuntamos al WOD del box.', 'Este paseo es el mejor gimnasio gratis.'] },
   ];
   const npcs = {};
   for (const d of npcDefs) {
-    const a = texAsset((x) => { x.fillStyle = '#e8b88a'; x.fillRect(12, 4, 8, 8); x.fillStyle = d.hair; x.fillRect(11, 3, 10, 4); x.fillStyle = d.c; x.fillRect(10, 12, 13, 13); x.fillStyle = '#2b2233'; x.fillRect(11, 25, 4, 6); x.fillRect(18, 25, 4, 6); }, 32, 0.55, 1.0);
+    const a = npcAsset(d.id);
     const g = mkSprite(a); g.position.set(d.wps[0][0] + 0.5, 0.12, d.wps[0][1] + 0.5); g.userData.ref = { kind: 'npc', id: d.id }; scene.add(g);
     npcs[d.id] = { g, d, wi: 1, pause: 1 + Math.random() * 2 };
   }
@@ -1421,4 +1424,4 @@ export function mountGame(root) {
   api.audioDebug = audioDebug;
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
-      }
+                          }
