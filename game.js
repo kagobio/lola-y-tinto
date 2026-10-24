@@ -265,6 +265,7 @@ export function mountGame(root) {
   // gen15: árboles pintados -> sprites con profundidad y tronco sólido
   const CELLPX = 1440 / RIO.W;
   for (const t of TREES) { const cx = RX + Math.floor(t.x / CELLPX), cz = Math.floor((t.y - 4) / CELLPX); if (cx >= 0 && cx < GW && cz >= 0 && cz < GD) statik[cx][cz] = 1; }
+  const canopies = [];
   { const bgI = new Image();
     bgI.onload = () => {
       for (const t of TREES) {
@@ -275,7 +276,7 @@ export function mountGame(root) {
           const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
           const a = { tex, w: t.w / CELLPX, h: t.h / CELLPX, alpha: null, pw: t.w, ph: t.h };
           const g = mkSprite(a); g.userData.spr.raycast = () => {};
-          g.position.set(RX + (t.x0 + t.w / 2) / CELLPX, 0.1 + (t.y / CELLPX) * 0.01 + 0.0005, (t.y0 + t.h) / CELLPX); scene.add(g);
+          g.position.set(RX + (t.x0 + t.w / 2) / CELLPX, 0.1 + (t.y / CELLPX) * 0.01 + 0.0005, (t.y0 + t.h) / CELLPX); scene.add(g); g.userData.spr.material.transparent = true; canopies.push({ t, m: g.userData.spr });
         };
         mI.src = t.m;
       }
@@ -285,7 +286,7 @@ export function mountGame(root) {
   const shadowTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(32, 16, 2, 32, 16, 30); gr.addColorStop(0, 'rgba(20,16,10,0.42)'); gr.addColorStop(1, 'rgba(20,16,10,0)'); x.save(); x.scale(1, 0.5); x.translate(0, 16); x.fillStyle = gr; x.beginPath(); x.arc(32, 16, 30, 0, 7); x.fill(); x.restore(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
   const shadows = [];
   function addShadow(g, w) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.5), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.raycast = () => {}; scene.add(m); shadows.push({ g, m }); }
-  const sizeTick = () => { for (const sh of shadows) { const p = sh.g.position; sh.m.position.set(p.x, 0.1 + p.z * 0.01 - 0.003, p.z - 0.05); } };
+  const sizeTick = () => { for (const cp of canopies) { const t = cp.t; let hide = false; if (chars.el && chars.el.where === 'rio') for (const id of ['el', 'ella']) { const p = chars[id].g.position; if (p.x > RX + t.x0 / CELLPX && p.x < RX + (t.x0 + t.w) / CELLPX && p.z < t.y / CELLPX && p.z > (t.y0 + t.h * 0.3) / CELLPX) hide = true; } const o = cp.m.material.opacity, tg = hide ? 0.4 : 1; cp.m.material.opacity = o + (tg - o) * 0.2; } for (const sh of shadows) { const p = sh.g.position; sh.m.position.set(p.x, 0.1 + p.z * 0.01 - 0.003, p.z - 0.05); } };
   const ducks = [];
   for (let i = 0; i < 3; i++) {
     const dz = (17.6 + (i % 2) * 1.6) * RK;
@@ -1448,7 +1449,7 @@ export function mountGame(root) {
   api.goWorld = goWorld; api.RIO = RIO; api.ducks = ducks;
   api.gen = 11; api.startWod = startWod; api.wodState = () => wodOn; api.wodHit = wodHitTiming; api.wodMash = wodMash; api.wodFoot = wodFoot; api.endWod = endWod;
   api.miniOn = () => miniOn; api.runTalk = runTalk; api.bubble = bubble; api.npcs = npcs; api.startTimingGame = startTimingGame; api.setMusic = setMusic;
-  api.audioDebug = audioDebug;
+  api.audioDebug = audioDebug; api.free = free; api.grid = [GW, GD];
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
     }
