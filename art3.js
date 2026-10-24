@@ -39,3 +39,4 @@ export function plotAsset(p) {
   return mkAsset(p.type === 'girasol' ? 'plotGirasol' : p.type === 'patata' ? 'plotPatata' : 'plotTomate');
 }
 export const iconURL = t => { const m = SPR[t === 'comedero' ? 'comedero1' : t === 'fregadero' ? 'fregadero' : t]; return m ? m[2] : null; };
+export { RIOBG };
