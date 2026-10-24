@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { THREE } from './models.js';
 import { BG, RIOBG, MATBG, BOXBG, SPR } from './28-assets.js';
+import { NPCSPR } from './npc-assets.js';
+Object.assign(SPR, NPCSPR);
 export const PPU = 64;
 const cache = new Map();
 function mkAsset(name, flip) {
@@ -25,6 +27,7 @@ export function makeGround(W, D) {
 const KEY = { counter: 'counter', fregadero: 'fregadero' };
 export const ART = new Proxy({}, { get: (_, k) => () => mkAsset(KEY[k] || k) });
 export function personAsset(id, dir, fr) { return mkAsset('p_' + id + dir, fr === 2); }
+export function npcAsset(id) { return mkAsset('n_' + id); }
 export function makeGroundAt(x0, W, D, src) {
   const t = new THREE.Texture(); t.colorSpace = THREE.SRGBColorSpace; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = 4;
   const img = new Image(); img.onload = () => { t.image = img; t.needsUpdate = true; }; img.src = src || RIOBG;
