@@ -313,7 +313,7 @@ export function mountGame(root) {
   for (const i of S.coinSpots.taken) if (coinG[i]) { scene.remove(coinG[i]); coinActs[i].gone = true; }
   function resetCoins() { S.coinSpots = { day: S.day, taken: [] }; coinG.forEach((g, i) => { if (!g.parent) scene.add(g); coinActs[i].gone = false; }); }
   // músico de la plaza
-  const musA = texAsset((x) => { x.fillStyle = '#e8b88a'; x.fillRect(12, 3, 8, 8); x.fillStyle = '#1c1626'; x.fillRect(11, 2, 10, 4); x.fillStyle = '#3a2f45'; x.fillRect(10, 11, 12, 14); x.fillStyle = '#2b2233'; x.fillRect(10, 25, 4, 6); x.fillRect(18, 25, 4, 6); x.fillStyle = '#a95f2a'; x.beginPath(); x.ellipse(20, 18, 6, 4, -0.5, 0, 7); x.fill(); x.fillStyle = '#7a4520'; x.fillRect(11, 13, 9, 2); }, 32, 0.9, 1.2);
+  const musA = npcAsset('miro');
   const musG = put(musA, RX + 21.5 * RK, 8.6 * RK); musG.userData.ref = { kind: 'musico', cells: RL([[21, 8]]) };
   addAct('rio', musG.userData.ref, RX + 21 * RK, 8 * RK, '🎸 Escuchar');
   // mariposas del jardín y la plaza
@@ -1424,4 +1424,4 @@ export function mountGame(root) {
   api.audioDebug = audioDebug;
   window.__game = api;
   return () => { cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); stopMusic(); };
-                                                                }
+    }
