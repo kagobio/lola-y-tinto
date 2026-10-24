@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { THREE } from './models.js';
-import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, npcAsset, catAsset, plotAsset } from './art3.js';
+import { iconURL, makeGround, makeGroundAt, mkSprite, setAsset, hit, ART, personAsset, npcAsset, catAsset, plotAsset, RIOBG } from './art3.js';
+import { TREES } from './trees.js';
 import { startMusic, stopMusic, sfx, setMuted , audioDebug } from './audio.js';
 import { MATBG, BOXBG } from './28-assets.js';
 
@@ -261,6 +262,30 @@ export function mountGame(root) {
   const signMat = put(ART.cartel(), 61.2, 15.2); signMat.userData.ref = { kind: 'gate', to: 'mat', cells: [[61, 14]] };
   const signBox = put(ART.cartel(), RX + 33.5 * RK, 13.6 * RK); signBox.userData.ref = { kind: 'gate', to: 'box', cells: RL([[33, 13]]) };
   put(ART.gymout(), RX + 29.4 * RK, 15.05 * RK);
+  // gen15: árboles pintados -> sprites con profundidad y tronco sólido
+  const CELLPX = 1440 / RIO.W;
+  for (const t of TREES) { const cx = RX + Math.floor(t.x / CELLPX), cz = Math.floor((t.y - 4) / CELLPX); if (cx >= 0 && cx < GW && cz >= 0 && cz < GD) statik[cx][cz] = 1; }
+  { const bgI = new Image();
+    bgI.onload = () => {
+      for (const t of TREES) {
+        const mI = new Image();
+        mI.onload = () => {
+          const c = document.createElement('canvas'); c.width = t.w; c.height = t.h; const x = c.getContext('2d');
+          x.drawImage(bgI, t.x0, t.y0, t.w, t.h, 0, 0, t.w, t.h); x.globalCompositeOperation = 'destination-in'; x.drawImage(mI, 0, 0);
+          const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
+          const a = { tex, w: t.w / CELLPX, h: t.h / CELLPX, alpha: null, pw: t.w, ph: t.h };
+          const g = mkSprite(a); g.userData.spr.raycast = () => {};
+          g.position.set(RX + (t.x0 + t.w / 2) / CELLPX, 0.1 + (t.y / CELLPX) * 0.01 + 0.0005, (t.y0 + t.h) / CELLPX); scene.add(g);
+        };
+        mI.src = t.m;
+      }
+    };
+    bgI.src = RIOBG; }
+  // gen15: sombras suaves bajo personajes y vecinos
+  const shadowTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(32, 16, 2, 32, 16, 30); gr.addColorStop(0, 'rgba(20,16,10,0.42)'); gr.addColorStop(1, 'rgba(20,16,10,0)'); x.save(); x.scale(1, 0.5); x.translate(0, 16); x.fillStyle = gr; x.beginPath(); x.arc(32, 16, 30, 0, 7); x.fill(); x.restore(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const shadows = [];
+  function addShadow(g, w) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.5), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.raycast = () => {}; scene.add(m); shadows.push({ g, m }); }
+  const sizeTick = () => { for (const sh of shadows) { const p = sh.g.position; sh.m.position.set(p.x, 0.1 + p.z * 0.01 - 0.003, p.z - 0.05); } };
   const ducks = [];
   for (let i = 0; i < 3; i++) {
     const dz = (17.6 + (i % 2) * 1.6) * RK;
@@ -343,6 +368,7 @@ export function mountGame(root) {
     g.userData.ref = { kind: 'person', id };
     chars[id] = { id, g, gateT: 1.5, path: [], busy: null, anim: 0, after: null, face: 0, dir: 0, where: okSaved ? sp.w : 'casa' };
   }
+  for (const id of ['el', 'ella']) addShadow(chars[id].g, 1.0);
   let active = 'el';
   const cats = {};
   for (const [id, cell] of [['lola', [8, 8]], ['tinto', [15, 5]]]) {
@@ -1082,6 +1108,7 @@ export function mountGame(root) {
     const a = npcAsset(d.id);
     const g = mkSprite(a); g.position.set(d.wps[0][0] + 0.5, 0.12, d.wps[0][1] + 0.5); g.userData.ref = { kind: 'npc', id: d.id }; scene.add(g);
     npcs[d.id] = { g, d, wi: 1, pause: 1 + Math.random() * 2 };
+    addShadow(g, 0.9);
   }
   const bubs = {};
   function bubObj(oid) { return chars[oid] ? chars[oid].g : cats[oid] ? cats[oid].g : npcs[oid] ? npcs[oid].g : null; }
@@ -1404,7 +1431,7 @@ export function mountGame(root) {
       catvPounce = Math.max(0, catvPounce - dt);
       if (catvCtx) drawCatView(catvCtx, catvOn, catvT);
     }
-    convoTick(dt); bubTick(dt); npcTick(dt);
+    convoTick(dt); bubTick(dt); npcTick(dt); sizeTick(); for (const id of ['el', 'ella']) { const k = chars[id].where === 'casa' ? 1 : 0.85; chars[id].g.scale.set(k, 1, k); } for (const id in npcs) npcs[id].g.scale.set(0.85, 1, 0.85);
     if (miniOn) miniTick(dt);
     if (wodOn) wodTick(dt);
     updateCam(dt);
